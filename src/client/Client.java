@@ -6,14 +6,20 @@ import java.util.Scanner;
 
 public class Client extends UnicastRemoteObject implements ClientInterface {
     private Scanner scanner;
+    private String studentNumber;
     public Client() throws RemoteException {
         super();
         this.scanner = new Scanner(System.in);
+        this.studentNumber = null;
     }
 
     @Override
     public String fetchStudentNumber() throws RemoteException {
+        if(studentNumber != null) {
+            return studentNumber;
+        }
         System.out.println("Enter your student number : ");
-        return scanner.nextLine();
+        studentNumber = scanner.nextLine();
+        return studentNumber;
     }
 }
