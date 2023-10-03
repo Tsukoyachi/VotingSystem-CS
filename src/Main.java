@@ -4,8 +4,14 @@ import client.Vote;
 import client.VoteInterface;
 import exception.BadCredentialsException;
 import exception.HaveAlreadyAskedOTP;
+import remote.CandidateInterface;
 import remote.VotingSystemInterface;
 
+import java.awt.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -15,14 +21,14 @@ import java.util.List;
 import java.util.Scanner;
 
 public class Main {
-    public static void main(String[] args) throws RemoteException, NotBoundException, BadCredentialsException, HaveAlreadyAskedOTP {
+    public static void main(String[] args) throws IOException, NotBoundException, BadCredentialsException, HaveAlreadyAskedOTP {
         Scanner scanner = new Scanner(System.in);
         Registry registry = LocateRegistry.getRegistry(1099);
         VotingSystemInterface votingSystem = (VotingSystemInterface) registry.lookup("votingSystem");
         ClientInterface client = new Client();
 
         // Check if the user need his password or if he already know it
-        System.out.println("Hello, we'll proceed into the vote, but before that do you know your password ? (Y for yes and N for no) : ");
+        System.out.println("Hello, we'll proceed into the vote, but before that do you want to know your password ? (Y for yes and N for no) : ");
         String choice = scanner.nextLine();
         while (!choice.equals("Y") && !choice.equals("N")) {
             System.out.println("You need to enter either Y or N in order to get or not your password :");
@@ -45,11 +51,47 @@ public class Main {
         }
 
         System.out.println("Here are the candidate for this election : ");
-        List<String> candidates = votingSystem.askListOfCandidate();
-        for (String tmp : candidates) {
-            System.out.println(" - " + tmp);
+        List<CandidateInterface> candidates = votingSystem.askListOfCandidate();
+        for (CandidateInterface tmp : candidates) {
+            System.out.println(" - " + tmp.toString());
+        }
+        System.out.println("What do you want to do ? (V for vote and P to view pitch) : ");
+        choice = scanner.nextLine();
+        while (!choice.equals("V") && !choice.equals("P")) {
+            System.out.println("You need to enter either V or P in order to vote or see the pitch :");
+            choice = scanner.nextLine();
+        }
+        if(choice.equals("P")) {
+            System.out.println("Which candidate do you want to see the pitch ? (Enter the number of the candidate) : ");
+            int candidateNumber = scanner.nextInt();
+            while (candidateNumber < 1 || candidateNumber > candidates.size()) {
+                System.out.println("You need to enter a number between 1 and " + candidates.size() + " :");
+                candidateNumber = scanner.nextInt();
+            }
+            System.out.println("Here is the pitch of the candidate " + candidates.get(candidateNumber - 1).toString() + " : ");
+            Object pitch = votingSystem.getPitchForCandidate(candidates.get(candidateNumber - 1));
+            if(pitch instanceof String) {
+                System.out.println("Text pitch: " +pitch);
+            } else if(pitch instanceof byte[]) {
+                File videoFile = new File("downloaded_video.mp4");
+                try (FileOutputStream fos = new FileOutputStream(videoFile)) {
+                    fos.write((byte[]) pitch);
+                } catch (FileNotFoundException e) {
+                    throw new RuntimeException(e);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                System.out.println("Video downloaded to " + videoFile.getAbsolutePath());
+                Desktop.getDesktop().open(videoFile);
+
+            System.out.println("The pitch is a video, you can find it in the ressource folder");
+            }
+            System.exit(0);
         }
 
+        if(choice.equals("R")) {
+
+        }
         List<VoteInterface> votes = new ArrayList<>();
         for(int i=0; i<candidates.size(); i++){
             System.out.println("Which value between 0-3 (with 0 the worst and 3 the best) do you want to give to " + candidates.get(i) + "?");
