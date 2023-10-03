@@ -30,6 +30,7 @@ public class Main {
 
         // Check if the user needs his password or if he already knows it
         System.out.println("Hello, we'll proceed into the vote, but before that do you want to know your password ? (Y for yes and N for no) : ");
+        System.out.println("Please remember that the password will only be provided once so you need to remember it in order to be able to connect again !!!");
         String choice = scanner.nextLine();
 
         while (!choice.equals("Y") && !choice.equals("N")) {
@@ -37,11 +38,19 @@ public class Main {
             choice = scanner.nextLine();
         }
 
-        String studentNumber = null;
+        String studentNumber;
         String password = null;
 
         if(choice.equals("Y")) {
-            password = votingSystem.askUserOTP(client);
+            try {
+                password = votingSystem.askUserOTP(client);
+            } catch (HaveAlreadyAskedOTP e) {
+                System.out.println("This user already has for his one time password, please contact the administrator if you lost it.");
+                System.exit(1);
+            } catch (BadCredentialsException e) {
+                System.out.println("The student number you provided doesn't exist, please retry");
+                System.exit(1);
+            }
             System.out.println("Here is your password : " + password);
             System.out.println("Please memorize it well, because it won't be provided anymore");
         }
@@ -84,11 +93,11 @@ public class Main {
                 if(pitch.getType().equals("text")) {
                     System.out.println("Text pitch: " +pitch.getTextElement());
                 } else if(pitch.getType().equals("video")) {
-                    File videoFile = new File("downloaded_video.mp4");
+                    File videoFile = new File(pitch.getTextElement());
                     try (FileOutputStream fos = new FileOutputStream(videoFile)) {
-                        fos.write((byte[]) pitch.getVideoElement());
+                        fos.write(pitch.getVideoElement());
                     }
-                    System.out.println("Video downloaded to " + videoFile.getAbsolutePath());
+                    System.out.println("Video downloaded to " + videoFile.getAbsoluteFile());
                     Desktop.getDesktop().open(videoFile);
                     System.out.println("The pitch is a video, you can find it in the resource folder");
                 }
@@ -96,7 +105,7 @@ public class Main {
             } else if(choice.equals("V")) {
                 List<VoteInterface> votes = new ArrayList<>();
                 for(int i = 0; i < candidates.size(); i++){
-                    System.out.println("Which value between 0-3 (with 0 the worst and 3 the best) do you want to give to " + candidates.get(i) + "?");
+                    System.out.println("Which value between 0-3 (with 0 the worst and 3 the best) do you want to give to " + candidates.get(i).getPresentation() + "?");
                     int candidateVoteValue = scanner.nextInt();
                     if(candidateVoteValue < 0 || candidateVoteValue > 3){
                         System.out.println("Please enter a value between 0-3");
@@ -106,15 +115,17 @@ public class Main {
                     votes.add(new Vote(i+1, candidateVoteValue));
                 }
 
-                Boolean didVoteSucceded = votingSystem.emitVote(studentNumber,password,votes);
-                if(didVoteSucceded) {
+                Boolean didVoteSucceeded = votingSystem.emitVote(studentNumber,password,votes);
+                if(didVoteSucceeded) {
                     System.out.println("Your vote has been acknowledged");
+                    System.out.println(votingSystem.checkResultOfElection());
                 } else {
                     System.out.println("An error occurred with the vote");
                     System.out.println(" - It might have already ended\n - Or a problem happened with the vote processing");
                 }
+                keepGoing = false;
 
-            } else if(choice.equals("Q")) {
+            } else {
                 keepGoing = false;
             }
 
