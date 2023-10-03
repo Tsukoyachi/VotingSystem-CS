@@ -5,6 +5,7 @@ import client.VoteInterface;
 import exception.BadCredentialsException;
 import exception.HaveAlreadyAskedOTP;
 import remote.CandidateInterface;
+import remote.Pitch;
 import remote.VotingSystemInterface;
 
 import java.awt.*;
@@ -12,6 +13,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -21,13 +24,13 @@ import java.util.List;
 import java.util.Scanner;
 
 public class Main {
-    public static void main(String[] args) throws IOException, NotBoundException, BadCredentialsException, HaveAlreadyAskedOTP {
+    public static void main(String[] args) throws IOException, NotBoundException, BadCredentialsException, HaveAlreadyAskedOTP, IllegalAccessException {
         Scanner scanner = new Scanner(System.in);
         Registry registry = LocateRegistry.getRegistry(1099);
         VotingSystemInterface votingSystem = (VotingSystemInterface) registry.lookup("votingSystem");
         ClientInterface client = new Client();
 
-        // Check if the user need his password or if he already know it
+        // Check if the user need his password or if he already knows it
         System.out.println("Hello, we'll proceed into the vote, but before that do you want to know your password ? (Y for yes and N for no) : ");
         String choice = scanner.nextLine();
         while (!choice.equals("Y") && !choice.equals("N")) {
@@ -53,7 +56,7 @@ public class Main {
         System.out.println("Here are the candidate for this election : ");
         List<CandidateInterface> candidates = votingSystem.askListOfCandidate();
         for (CandidateInterface tmp : candidates) {
-            System.out.println(" - " + tmp.toString());
+            System.out.println(" - " + tmp.getPresentation());
         }
         System.out.println("What do you want to do ? (V for vote and P to view pitch) : ");
         choice = scanner.nextLine();
@@ -62,36 +65,27 @@ public class Main {
             choice = scanner.nextLine();
         }
         if(choice.equals("P")) {
-            System.out.println("Which candidate do you want to see the pitch ? (Enter the number of the candidate) : ");
+            System.out.println("Which candidate do you want to see the pitch ? (Enter the rank number of the candidate) : ");
             int candidateNumber = scanner.nextInt();
             while (candidateNumber < 1 || candidateNumber > candidates.size()) {
                 System.out.println("You need to enter a number between 1 and " + candidates.size() + " :");
                 candidateNumber = scanner.nextInt();
             }
-            System.out.println("Here is the pitch of the candidate " + candidates.get(candidateNumber - 1).toString() + " : ");
-            Object pitch = votingSystem.getPitchForCandidate(candidates.get(candidateNumber - 1));
-            if(pitch instanceof String) {
-                System.out.println("Text pitch: " +pitch);
-            } else if(pitch instanceof byte[]) {
-                File videoFile = new File("downloaded_video.mp4");
-                try (FileOutputStream fos = new FileOutputStream(videoFile)) {
-                    fos.write((byte[]) pitch);
-                } catch (FileNotFoundException e) {
-                    throw new RuntimeException(e);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                System.out.println("Video downloaded to " + videoFile.getAbsolutePath());
+            CandidateInterface tmp = candidates.get(candidateNumber - 1);
+            System.out.println("Here is the pitch of the candidate " + tmp.getPresentation() + " : ");
+            Pitch pitch = tmp.getPitch();
+            if(pitch.getType().equals("text")) {
+                System.out.println("Text pitch: " +pitch.getTextElement());
+            } else if(pitch.getType().equals("video")) {
+                Files.write(Paths.get(pitch.getTextElement()), pitch.getVideoElement());
+                File videoFile = new File(pitch.getTextElement());
+                System.out.println("Video downloaded to " + videoFile.getAbsoluteFile());
                 Desktop.getDesktop().open(videoFile);
-
-            System.out.println("The pitch is a video, you can find it in the ressource folder");
+                System.out.println("The pitch is a video, you can find it in the ressource folder");
             }
             System.exit(0);
         }
 
-        if(choice.equals("R")) {
-
-        }
         List<VoteInterface> votes = new ArrayList<>();
         for(int i=0; i<candidates.size(); i++){
             System.out.println("Which value between 0-3 (with 0 the worst and 3 the best) do you want to give to " + candidates.get(i) + "?");
@@ -108,7 +102,7 @@ public class Main {
         if(didVoteSucceded) {
             System.out.println("Your vote has been acknowledge");
         } else {
-            System.out.println("An error occured with the vote");
+            System.out.println("An error occurred with the vote");
             System.out.println(" - It can already be ended\n - Or a problem happened with the vote processing");
         }
 
